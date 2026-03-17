@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Roadmap Creator</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='18' width='100' height='100' fill='%232f5bff'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='54' font-weight='700' fill='white'>R</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,6 +20,10 @@
       </div>
       <div class="topbar-actions">
         <a class="btn-secondary topbar-download" href="/api/template" download>Download Template</a>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+          <span class="icon-moon">&#9790;</span>
+          <span class="icon-sun">&#9728;&#65039;</span>
+        </button>
       </div>
     </header>
 
@@ -52,20 +57,13 @@
           <li>Download the Excel template and fill one roadmap item per row.</li>
           <li>Use the core fields: application, feature_name, region, month, year, delivery_type.</li>
           <li>Quarter is auto-generated from month and year.</li>
-          <li>Optional `system` column enables richer swimlanes.</li>
           <li>Upload the file as CSV or Excel (.xlsx) and click Generate Roadmap.</li>
-          <li>Use filters to slice by application, feature, system, region, delivery type, quarter, month, and year.</li>
+          <li>Use filters to slice by application, feature, region, delivery type, quarter, month, and year.</li>
         </ol>
       </section>
     </div>
 
     <section id="dashboard" class="hidden">
-      <div class="kpi-grid">
-        <article class="card kpi"><span>Total Items</span><strong id="kpi-total">0</strong></article>
-        <article class="card kpi"><span>Swimlanes</span><strong id="kpi-swimlanes">0</strong></article>
-        <article class="card kpi"><span>Quarters</span><strong id="kpi-quarters">0</strong></article>
-        <article class="card kpi"><span>Years</span><strong id="kpi-years">0</strong></article>
-      </div>
 
       <section class="card filters-section">
         <h2>Filters</h2>
@@ -76,10 +74,19 @@
       <section class="card table-section">
         <div class="table-header">
           <h2>Roadmap</h2>
-          <span id="results-count">0 results</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span id="results-count">0 results</span>
+            <button type="button" class="btn-export" id="export-png" title="Export roadmap as PNG">
+              &#128247; Export PNG
+            </button>
+          </div>
         </div>
         <div id="roadmap-board" class="roadmap-board">
-          <div class="empty">Upload data to view roadmap timeline.</div>
+          <div class="onboarding">
+            <div class="onboarding-icon">&#128506;</div>
+            <h3>No roadmap loaded</h3>
+            <p>Upload a Jira extract above to generate your visual delivery timeline.</p>
+          </div>
         </div>
       </section>
     </section>
@@ -95,22 +102,18 @@
     const resultsCount = document.getElementById('results-count');
     const uploadCard = document.getElementById('upload-card');
     const toggleUploadButton = document.getElementById('toggle-upload');
-
-    const kpiTotal = document.getElementById('kpi-total');
-    const kpiSwimlanes = document.getElementById('kpi-swimlanes');
-    const kpiQuarters = document.getElementById('kpi-quarters');
-    const kpiYears = document.getElementById('kpi-years');
+    const themeToggle = document.getElementById('theme-toggle');
+    const exportPng = document.getElementById('export-png');
     const helpModal = document.getElementById('help-modal');
     const helpTrigger = document.getElementById('help-trigger');
     const helpClose = document.getElementById('help-close');
 
-    const filterFields = ['application', 'feature_name', 'system', 'region', 'delivery_type', 'quarter', 'month', 'year'];
+    const filterFields = ['application', 'feature_name', 'region', 'delivery_type', 'quarter', 'month', 'year'];
     const temporalQuickFields = ['year', 'quarter', 'month'];
     const quickButtonFields = ['region', ...temporalQuickFields];
     const filterLabels = {
       application: 'Application',
       feature_name: 'Feature Name',
-      system: 'System',
       region: 'Region',
       delivery_type: 'Delivery Type',
       quarter: 'Quarter',
@@ -148,6 +151,45 @@
     function closeHelp() {
       helpModal.classList.add('hidden');
     }
+
+    /* ── Dark mode ── */
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    }
+
+    (function initTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved) { applyTheme(saved); return; }
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        applyTheme('dark');
+      }
+    })();
+
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    /* ── Drag-to-scroll on roadmap board ── */
+    (function initDragScroll() {
+      let isDown = false, startX, startY, scrollLeft, scrollTop;
+      roadmapBoard.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.feature-card, button, a, select')) return;
+        isDown = true;
+        startX = e.pageX - roadmapBoard.offsetLeft;
+        startY = e.pageY - roadmapBoard.offsetTop;
+        scrollLeft = roadmapBoard.scrollLeft;
+        scrollTop = roadmapBoard.scrollTop;
+      });
+      document.addEventListener('mouseup', () => { isDown = false; });
+      document.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        roadmapBoard.scrollLeft = scrollLeft - ((e.pageX - roadmapBoard.offsetLeft) - startX);
+        roadmapBoard.scrollTop = scrollTop - ((e.pageY - roadmapBoard.offsetTop) - startY);
+      });
+    })();
 
     function setUploadCollapsed(collapsed) {
       uploadCard.classList.toggle('collapsed', collapsed);
@@ -204,6 +246,8 @@
 
       const buttonGroup = document.createElement('div');
       buttonGroup.className = 'quick-buttons';
+      buttonGroup.setAttribute('role', 'group');
+      buttonGroup.setAttribute('aria-label', filterLabels[field] + ' filter');
 
       const allButton = document.createElement('button');
       allButton.type = 'button';
@@ -306,7 +350,6 @@
       });
 
       renderRoadmap(filtered, activeFilters);
-      renderKpis(filtered);
       resultsCount.textContent = `${filtered.length} results`;
     }
 
@@ -445,6 +488,13 @@
       return Array.from(lanes.values()).sort((a, b) => a.application.localeCompare(b.application) || a.region.localeCompare(b.region));
     }
 
+    function getTodayKey() {
+      const now = new Date();
+      return `${now.getFullYear()}-${now.getMonth() + 1}`;
+    }
+
+    let collapsedApps = new Set();
+
     function renderRoadmap(rows, activeFilters) {
       roadmapBoard.innerHTML = '';
       if (!rows.length) {
@@ -458,14 +508,24 @@
         return;
       }
 
+      const todayKey = getTodayKey();
       const lanes = buildLanes(rows);
       const yearGroups = buildYearGroups(periods);
       const quarterGroups = buildQuarterGroups(periods);
+
+      /* Group lanes by application */
+      const appGroups = new Map();
+      lanes.forEach((lane) => {
+        const app = lane.application;
+        if (!appGroups.has(app)) appGroups.set(app, []);
+        appGroups.get(app).push(lane);
+      });
 
       const grid = document.createElement('div');
       grid.className = 'timeline-grid';
       grid.style.setProperty('--period-columns', String(Math.max(periods.length, 1)));
 
+      /* Year tier */
       const yearLabel = document.createElement('div');
       yearLabel.className = 'lane-label lane-label-header timeline-tier-label';
       yearLabel.textContent = 'Year';
@@ -479,6 +539,7 @@
         grid.appendChild(yearCell);
       });
 
+      /* Quarter tier */
       const quarterLabel = document.createElement('div');
       quarterLabel.className = 'lane-label lane-label-header timeline-tier-label';
       quarterLabel.textContent = 'Quarter';
@@ -492,6 +553,7 @@
         grid.appendChild(quarterCell);
       });
 
+      /* Month tier */
       const monthLabel = document.createElement('div');
       monthLabel.className = 'lane-label lane-label-header timeline-tier-label';
       monthLabel.textContent = 'Swimlanes';
@@ -500,52 +562,95 @@
       periods.forEach((period) => {
         const headerCell = document.createElement('div');
         headerCell.className = 'timeline-header-cell';
+        if (period.key === todayKey) headerCell.classList.add('today-col');
         headerCell.textContent = period.month;
         grid.appendChild(headerCell);
       });
 
-      lanes.forEach((lane) => {
-        const laneLabel = document.createElement('div');
-        laneLabel.className = 'lane-label';
-        laneLabel.innerHTML = `<strong>${safeValue(lane.application)}</strong><span>${safeValue(lane.region)}</span>`;
-        grid.appendChild(laneLabel);
+      /* Render grouped lanes */
+      let globalLaneIdx = 0;
+      appGroups.forEach((groupLanes, appName) => {
+        const isCollapsed = collapsedApps.has(appName);
+        const totalItems = groupLanes.reduce((s, l) => s + l.items.length, 0);
 
-        periods.forEach((period) => {
-          const cell = document.createElement('div');
-          cell.className = 'timeline-cell';
-
-          const items = lane.items.filter((item) => getPeriodMeta(item).key === period.key);
-          if (items.length) {
-            cell.innerHTML = items.map((item) => `
-              <article class="feature-card">
-                <h3>${safeValue(item.feature_name)}</h3>
-                <p>${safeValue(item.application)}</p>
-                <div class="card-meta-row">
-                  <span class="pill">${safeValue(item.quarter)}</span>
-                  <span class="type-pill type-${normalizeDeliveryType(item.delivery_type)}">${safeValue(item.delivery_type)}</span>
-                </div>
-              </article>
-            `).join('');
+        /* App group header row */
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'app-group-label' + (isCollapsed ? ' collapsed' : '');
+        groupLabel.innerHTML = `<span class="collapse-chevron">&#9660;</span><strong>${safeValue(appName)}</strong><span class="group-count">${groupLanes.length} region${groupLanes.length !== 1 ? 's' : ''} &middot; ${totalItems} item${totalItems !== 1 ? 's' : ''}</span>`;
+        groupLabel.addEventListener('click', () => {
+          if (collapsedApps.has(appName)) {
+            collapsedApps.delete(appName);
           } else {
-            cell.innerHTML = '<div class="timeline-placeholder" aria-label="No roadmap item">—</div>';
+            collapsedApps.add(appName);
           }
+          applyFilters();
+        });
+        grid.appendChild(groupLabel);
 
-          grid.appendChild(cell);
+        /* Spacer cells across all period columns for the group header */
+        periods.forEach(() => {
+          const spacer = document.createElement('div');
+          spacer.className = 'app-group-spacer';
+          grid.appendChild(spacer);
+        });
+
+        /* Individual lane rows */
+        groupLanes.forEach((lane, laneInGroupIdx) => {
+          const isEven = laneInGroupIdx % 2 === 1;
+
+          const laneLabel = document.createElement('div');
+          laneLabel.className = 'lane-label';
+          if (isEven) laneLabel.classList.add('lane-row-even');
+          if (isCollapsed) laneLabel.classList.add('lane-hidden');
+          laneLabel.innerHTML = `<strong>${safeValue(lane.region)}</strong>`;
+          laneLabel.setAttribute('role', 'rowheader');
+          laneLabel.dataset.appGroup = appName;
+          grid.appendChild(laneLabel);
+
+          periods.forEach((period) => {
+            const cell = document.createElement('div');
+            cell.className = 'timeline-cell';
+            if (isEven) cell.classList.add('lane-row-even');
+            if (isCollapsed) cell.classList.add('lane-hidden');
+            if (period.key === todayKey) cell.classList.add('today-col');
+            cell.setAttribute('role', 'gridcell');
+            cell.setAttribute('aria-label', `${safeValue(lane.application)} ${safeValue(lane.region)} - ${period.label}`);
+            cell.dataset.appGroup = appName;
+
+            const items = lane.items.filter((item) => getPeriodMeta(item).key === period.key);
+            if (items.length) {
+              cell.innerHTML = items.map((item) => {
+                const dtClass = normalizeDeliveryType(item.delivery_type);
+                return `
+                <article class="feature-card card-type-${dtClass}" style="position:relative">
+                  <h3>${safeValue(item.feature_name)}</h3>
+                  <div class="card-meta-row">
+                    <span class="pill">${safeValue(item.quarter)}</span>
+                    <span class="type-pill type-${dtClass}">${safeValue(item.delivery_type)}</span>
+                  </div>
+                  <div class="card-tooltip">
+                    <strong>${safeValue(item.feature_name)}</strong>
+                    <div class="tooltip-row">
+                      <span>${safeValue(item.application)}</span>
+                      <span>${safeValue(item.region)}</span>
+                      <span>${safeValue(item.month)} ${safeValue(item.year)}</span>
+                      <span>${safeValue(item.delivery_type)}</span>
+                    </div>
+                  </div>
+                </article>
+              `}).join('');
+            } else {
+              cell.innerHTML = '<div class="timeline-placeholder" aria-label="No roadmap item">&mdash;</div>';
+            }
+
+            grid.appendChild(cell);
+          });
+
+          globalLaneIdx++;
         });
       });
 
       roadmapBoard.appendChild(grid);
-    }
-
-    function renderKpis(rows) {
-      const swimlanes = new Set(rows.map((r) => `${r.application}||${r.region}`));
-      const quarters = new Set(rows.map((r) => r.quarter));
-      const years = new Set(rows.map((r) => r.year));
-
-      kpiTotal.textContent = rows.length;
-      kpiSwimlanes.textContent = swimlanes.size;
-      kpiQuarters.textContent = quarters.size;
-      kpiYears.textContent = years.size;
     }
 
     form.addEventListener('submit', async (event) => {
@@ -557,7 +662,10 @@
         return;
       }
 
-      message.textContent = 'Processing CSV...';
+      /* Show loading state */
+      message.textContent = '';
+      roadmapBoard.innerHTML = '<div class="loading-overlay"><div class="spinner"></div><span>Processing file&hellip;</span></div>';
+      dashboard.classList.remove('hidden');
 
       try {
         const payload = new FormData();
@@ -575,8 +683,8 @@
 
         allRows = data.rows;
         buildFilters(data.filters);
-        dashboard.classList.remove('hidden');
         applyFilters();
+
         message.textContent = `Roadmap generated from ${data.total_rows} records.`;
         setUploadCollapsed(true);
       } catch (error) {
@@ -601,6 +709,60 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         closeHelp();
+      }
+    });
+
+    /* ── Export PNG via html2canvas (loaded on demand) ── */
+    exportPng.addEventListener('click', async () => {
+      const grid = roadmapBoard.querySelector('.timeline-grid');
+      if (!grid) return;
+
+      exportPng.disabled = true;
+      exportPng.textContent = 'Exporting\u2026';
+
+      try {
+        if (!window.html2canvas) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+
+        const canvas = await window.html2canvas(grid, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
+        });
+
+        const link = document.createElement('a');
+        link.download = `roadmap-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (err) {
+        console.error('Export failed', err);
+      } finally {
+        exportPng.disabled = false;
+        exportPng.innerHTML = '&#128247; Export PNG';
+      }
+    });
+
+    /* ── Keyboard navigation for quick-filter button groups ── */
+    document.addEventListener('keydown', (event) => {
+      const btn = document.activeElement;
+      if (!btn || !btn.classList.contains('quick-filter-btn')) return;
+      const group = btn.closest('.quick-buttons');
+      if (!group) return;
+      const buttons = [...group.querySelectorAll('.quick-filter-btn')];
+      const idx = buttons.indexOf(btn);
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        buttons[(idx + 1) % buttons.length].focus();
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        buttons[(idx - 1 + buttons.length) % buttons.length].focus();
       }
     });
   </script>
