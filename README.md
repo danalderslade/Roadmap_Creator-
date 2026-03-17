@@ -7,9 +7,11 @@ A lightweight, professional web application that generates a product roadmap fro
 - Upload Jira CSV or Excel (XLSX) data and automatically extract:
 	- `application`
 	- `feature_name`
-	- `quarter`
+	- `region`
+	- `delivery_type`
 	- `month`
 	- `year`
+	- `quarter` (auto-generated when missing)
 - Dynamic filters across all roadmap parameters.
 - Clean enterprise-style UI for planning and reporting.
 - Kubernetes-ready deployment with health checks.
@@ -104,9 +106,12 @@ It contains the required roadmap columns:
 
 - `application`
 - `feature_name`
-- `quarter`
+- `region`
 - `month`
 - `year`
+- `delivery_type` (`Feature`, `Run`, `New Market Deployment`)
+
+`quarter` is generated automatically by the application based on month + year.
 
 To regenerate the template:
 

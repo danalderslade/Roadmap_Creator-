@@ -44,6 +44,14 @@ HEADER_SYNONYMS: dict[str, list[str]] = {
     ],
     "system": ["system", "platform", "service", "subsystem", "domain", "product line"],
     "region": ["region", "geo", "geography", "market", "country", "location"],
+    "delivery_type": [
+        "delivery type",
+        "type",
+        "work type",
+        "classification",
+        "initiative type",
+        "deployment type",
+    ],
     "quarter": ["quarter", "delivery quarter", "target quarter", "planned quarter", "qtr"],
     "month": ["month", "delivery month", "target month", "planned month"],
     "year": ["year", "delivery year", "target year", "planned year"],
@@ -150,6 +158,7 @@ def normalize_roadmap_rows(source_rows: list[dict[str, str]], headers: list[str]
         feature_name = first_non_empty(source_row, columns["feature_name"]) or "Untitled feature"
         system = first_non_empty(source_row, columns["system"]) or application
         region = first_non_empty(source_row, columns["region"]) or "Global"
+        delivery_type = first_non_empty(source_row, columns["delivery_type"]) or "Feature"
         quarter = first_non_empty(source_row, columns["quarter"]) or ""
         month = first_non_empty(source_row, columns["month"]) or ""
         year = first_non_empty(source_row, columns["year"]) or ""
@@ -184,6 +193,7 @@ def normalize_roadmap_rows(source_rows: list[dict[str, str]], headers: list[str]
                 "feature_name": feature_name,
                 "system": system,
                 "region": region,
+                "delivery_type": delivery_type.title(),
                 "quarter": normalized_quarter or "Unspecified",
                 "month": normalized_month or "Unspecified",
                 "year": normalized_year or "Unspecified",
@@ -226,7 +236,7 @@ def extract_roadmap_rows_from_excel(content: bytes) -> list[dict[str, str]]:
 
 
 def build_filters(rows: list[dict[str, str]]) -> dict[str, list[str]]:
-    keys = ["application", "feature_name", "system", "region", "quarter", "month", "year"]
+    keys = ["application", "feature_name", "system", "region", "delivery_type", "quarter", "month", "year"]
     filters: dict[str, list[str]] = {}
     for key in keys:
         values = sorted({row[key] for row in rows}, key=lambda x: (x == "Unspecified", x))

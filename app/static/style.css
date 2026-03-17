@@ -18,7 +18,10 @@
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  background: linear-gradient(180deg, #edf2ff 0%, var(--bg) 28%, #f8faff 100%);
+  background:
+    radial-gradient(circle at 8% 6%, rgba(26, 95, 255, 0.14), transparent 22%),
+    radial-gradient(circle at 92% 10%, rgba(102, 161, 255, 0.16), transparent 26%),
+    linear-gradient(180deg, #eaf2ff 0%, var(--bg) 30%, #f8fbff 100%);
   color: var(--text);
 }
 
@@ -42,6 +45,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  background: linear-gradient(135deg, rgba(26, 95, 255, 0.07), rgba(26, 95, 255, 0.01));
 }
 
 .topbar-actions {
@@ -198,6 +202,7 @@ input[type="file"] {
 
 .kpi {
   padding: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
 }
 
 .kpi span {
@@ -231,7 +236,7 @@ input[type="file"] {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #f8fbff;
+  background: linear-gradient(180deg, #fafdff 0%, #f4f9ff 100%);
 }
 
 .filters-grid {
@@ -296,7 +301,7 @@ input[type="file"] {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: linear-gradient(180deg, #fbfcff 0%, #f7faff 100%);
+  background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
 }
 
 .timeline-grid {
@@ -397,6 +402,36 @@ input[type="file"] {
   padding: 8px;
   margin-bottom: 6px;
   box-shadow: 0 4px 16px rgba(30, 58, 112, 0.08);
+}
+
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.type-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.type-feature {
+  background: #e8efff;
+  color: #1d4ed8;
+}
+
+.type-run {
+  background: #e7f8ee;
+  color: #0f8a46;
+}
+
+.type-new-market {
+  background: #fff2e8;
+  color: #b45309;
 }
 
 .feature-card h3 {

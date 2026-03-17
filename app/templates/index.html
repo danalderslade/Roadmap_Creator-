@@ -51,10 +51,11 @@
         </div>
         <ol>
           <li>Download the Excel template and fill one roadmap item per row.</li>
-          <li>Use the core fields: application, feature_name, quarter, month, year.</li>
-          <li>Optional `system` and `region` columns enable richer swimlanes.</li>
+          <li>Use the core fields: application, feature_name, region, month, year, delivery_type.</li>
+          <li>Quarter is auto-generated from month and year.</li>
+          <li>Optional `system` column enables richer swimlanes.</li>
           <li>Upload the file as CSV or Excel (.xlsx) and click Generate Roadmap.</li>
-          <li>Use filters to slice by application, feature, system, region, quarter, month, and year.</li>
+          <li>Use filters to slice by application, feature, system, region, delivery type, quarter, month, and year.</li>
         </ol>
       </section>
     </div>
@@ -104,7 +105,7 @@
     const helpTrigger = document.getElementById('help-trigger');
     const helpClose = document.getElementById('help-close');
 
-    const filterFields = ['application', 'feature_name', 'system', 'region', 'quarter', 'month', 'year'];
+    const filterFields = ['application', 'feature_name', 'system', 'region', 'delivery_type', 'quarter', 'month', 'year'];
     const temporalQuickFields = ['year', 'quarter', 'month'];
     const quickButtonFields = ['region', ...temporalQuickFields];
     const filterLabels = {
@@ -112,6 +113,7 @@
       feature_name: 'Feature Name',
       system: 'System',
       region: 'Region',
+      delivery_type: 'Delivery Type',
       quarter: 'Quarter',
       month: 'Month',
       year: 'Year'
@@ -156,6 +158,13 @@
 
     function safeValue(value) {
       return (value || '').toString().replace(/[<>]/g, '');
+    }
+
+    function normalizeDeliveryType(value) {
+      const clean = safeValue(value).toLowerCase();
+      if (clean === 'run') return 'run';
+      if (clean === 'new market deployment') return 'new-market';
+      return 'feature';
     }
 
     function createFilter(field, options) {
@@ -512,7 +521,10 @@
               <article class="feature-card">
                 <h3>${safeValue(item.feature_name)}</h3>
                 <p>${safeValue(item.application)}</p>
-                <span class="pill">${safeValue(item.quarter)}</span>
+                <div class="card-meta-row">
+                  <span class="pill">${safeValue(item.quarter)}</span>
+                  <span class="type-pill type-${normalizeDeliveryType(item.delivery_type)}">${safeValue(item.delivery_type)}</span>
+                </div>
               </article>
             `).join('');
           } else {
