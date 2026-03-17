@@ -1,14 +1,14 @@
 :root {
-  --bg: #f4f7fb;
+  --bg: #f2f6ff;
   --surface: #ffffff;
-  --surface-soft: #f9fbff;
-  --text: #16233b;
-  --muted: #5a6782;
-  --primary: #1a5fff;
-  --primary-soft: #e8efff;
-  --border: #dde4f0;
+  --surface-soft: #f4f8ff;
+  --text: #13243f;
+  --muted: #556b8d;
+  --primary: #2f5bff;
+  --primary-soft: #e5ecff;
+  --border: #d6e1f5;
   --radius: 14px;
-  --shadow: 0 10px 30px rgba(26, 51, 102, 0.08);
+  --shadow: 0 14px 34px rgba(18, 43, 95, 0.10);
 }
 
 * {
@@ -20,8 +20,8 @@ body {
   font-family: 'Inter', sans-serif;
   background:
     radial-gradient(circle at 8% 6%, rgba(26, 95, 255, 0.14), transparent 22%),
-    radial-gradient(circle at 92% 10%, rgba(102, 161, 255, 0.16), transparent 26%),
-    linear-gradient(180deg, #eaf2ff 0%, var(--bg) 30%, #f8fbff 100%);
+    radial-gradient(circle at 92% 10%, rgba(74, 145, 255, 0.18), transparent 26%),
+    linear-gradient(180deg, #e7f0ff 0%, var(--bg) 30%, #f7fbff 100%);
   color: var(--text);
 }
 
@@ -45,7 +45,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  background: linear-gradient(135deg, rgba(26, 95, 255, 0.07), rgba(26, 95, 255, 0.01));
+  background: linear-gradient(135deg, rgba(47, 91, 255, 0.10), rgba(47, 91, 255, 0.02));
 }
 
 .topbar-actions {
@@ -71,16 +71,6 @@ body {
 .muted {
   color: var(--muted);
   margin: 0;
-}
-
-.badge {
-  background: var(--primary-soft);
-  color: var(--primary);
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  white-space: nowrap;
 }
 
 .upload-card {
@@ -301,7 +291,7 @@ input[type="file"] {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+  background: linear-gradient(180deg, #fbfdff 0%, #f0f6ff 100%);
 }
 
 .timeline-grid {
@@ -352,15 +342,15 @@ input[type="file"] {
 }
 
 .timeline-year-cell {
-  background: #eaf2ff;
-  color: #17386e;
+  background: #dfeaff;
+  color: #14376f;
   font-weight: 700;
   text-align: center;
 }
 
 .timeline-quarter-cell {
-  background: #f0f6ff;
-  color: #29508f;
+  background: #eaf2ff;
+  color: #224983;
   font-weight: 600;
   text-align: center;
   font-size: 0.85rem;

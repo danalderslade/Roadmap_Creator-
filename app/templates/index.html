@@ -13,13 +13,12 @@
   <div class="page-shell">
     <header class="topbar card">
       <div>
-        <p class="eyebrow">Tier 1 Product Planning</p>
+        <p class="eyebrow">Dan's Roadmap Generator</p>
         <h1>Roadmap Creator</h1>
         <p class="muted">Upload a Jira extract and generate a visual delivery roadmap with dynamic filtering.</p>
       </div>
       <div class="topbar-actions">
         <a class="btn-secondary topbar-download" href="/api/template" download>Download Template</a>
-        <div class="badge">Enterprise Ready</div>
       </div>
     </header>
 
@@ -431,11 +430,11 @@
     function buildLanes(rows) {
       const lanes = new Map();
       rows.forEach((row) => {
-        const laneKey = `${row.system}||${row.region}`;
+        const laneKey = `${row.application}||${row.region}`;
         if (!lanes.has(laneKey)) {
           lanes.set(laneKey, {
             key: laneKey,
-            system: row.system,
+            application: row.application,
             region: row.region,
             items: []
           });
@@ -443,7 +442,7 @@
         lanes.get(laneKey).items.push(row);
       });
 
-      return Array.from(lanes.values()).sort((a, b) => a.system.localeCompare(b.system) || a.region.localeCompare(b.region));
+      return Array.from(lanes.values()).sort((a, b) => a.application.localeCompare(b.application) || a.region.localeCompare(b.region));
     }
 
     function renderRoadmap(rows, activeFilters) {
@@ -508,7 +507,7 @@
       lanes.forEach((lane) => {
         const laneLabel = document.createElement('div');
         laneLabel.className = 'lane-label';
-        laneLabel.innerHTML = `<strong>${safeValue(lane.system)}</strong><span>${safeValue(lane.region)}</span>`;
+        laneLabel.innerHTML = `<strong>${safeValue(lane.application)}</strong><span>${safeValue(lane.region)}</span>`;
         grid.appendChild(laneLabel);
 
         periods.forEach((period) => {
@@ -539,7 +538,7 @@
     }
 
     function renderKpis(rows) {
-      const swimlanes = new Set(rows.map((r) => `${r.system}||${r.region}`));
+      const swimlanes = new Set(rows.map((r) => `${r.application}||${r.region}`));
       const quarters = new Set(rows.map((r) => r.quarter));
       const years = new Set(rows.map((r) => r.year));
 
