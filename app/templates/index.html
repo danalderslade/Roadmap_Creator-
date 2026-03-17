@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roadmap Creator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar card">
+      <div>
+        <p class="eyebrow">Tier 1 Product Planning</p>
+        <h1>Roadmap Creator</h1>
+        <p class="muted">Upload a Jira extract and generate a visual delivery roadmap with dynamic filtering.</p>
+      </div>
+      <div class="topbar-actions">
+        <a class="btn-secondary topbar-download" href="/api/template" download>Download Template</a>
+        <div class="badge">Enterprise Ready</div>
+      </div>
+    </header>
+
+    <section class="card upload-card" id="upload-card">
+      <div class="upload-actions">
+        <a class="btn-secondary" href="/api/template" download>Download Excel Template</a>
+        <div class="upload-actions-right">
+          <button type="button" class="btn-secondary hidden" id="toggle-upload">Expand Upload</button>
+          <button type="button" class="help-icon" id="help-trigger" aria-label="How to use this app">?</button>
+        </div>
+      </div>
+      <div id="upload-content">
+        <form id="upload-form">
+          <label for="csvFile" class="field-label">Jira Extract (CSV or XLSX)</label>
+          <div class="upload-row">
+            <input id="csvFile" name="file" type="file" accept=".csv,.xlsx" required />
+            <button type="submit" class="btn-primary">Generate Roadmap</button>
+          </div>
+        </form>
+        <p id="message" class="muted"></p>
+      </div>
+    </section>
+
+    <div class="modal-overlay hidden" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <section class="help-modal card">
+        <div class="modal-header">
+          <h2 id="help-title">Quick Instructions</h2>
+          <button type="button" class="modal-close" id="help-close" aria-label="Close instructions">×</button>
+        </div>
+        <ol>
+          <li>Download the Excel template and fill one roadmap item per row.</li>
+          <li>Use the core fields: application, feature_name, quarter, month, year.</li>
+          <li>Optional `system` and `region` columns enable richer swimlanes.</li>
+          <li>Upload the file as CSV or Excel (.xlsx) and click Generate Roadmap.</li>
+          <li>Use filters to slice by application, feature, system, region, quarter, month, and year.</li>
+        </ol>
+      </section>
+    </div>
+
+    <section id="dashboard" class="hidden">
+      <div class="kpi-grid">
+        <article class="card kpi"><span>Total Items</span><strong id="kpi-total">0</strong></article>
+        <article class="card kpi"><span>Swimlanes</span><strong id="kpi-swimlanes">0</strong></article>
+        <article class="card kpi"><span>Quarters</span><strong id="kpi-quarters">0</strong></article>
+        <article class="card kpi"><span>Years</span><strong id="kpi-years">0</strong></article>
+      </div>
+
+      <section class="card filters-section">
+        <h2>Filters</h2>
+        <div class="temporal-filters" id="temporal-filters"></div>
+        <div class="filters-grid" id="filters-grid"></div>
+      </section>
+
+      <section class="card table-section">
+        <div class="table-header">
+          <h2>Roadmap</h2>
+          <span id="results-count">0 results</span>
+        </div>
+        <div id="roadmap-board" class="roadmap-board">
+          <div class="empty">Upload data to view roadmap timeline.</div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const message = document.getElementById('message');
+    const dashboard = document.getElementById('dashboard');
+    const roadmapBoard = document.getElementById('roadmap-board');
+    const filtersGrid = document.getElementById('filters-grid');
+    const temporalFilters = document.getElementById('temporal-filters');
+    const resultsCount = document.getElementById('results-count');
+    const uploadCard = document.getElementById('upload-card');
+    const toggleUploadButton = document.getElementById('toggle-upload');
+
+    const kpiTotal = document.getElementById('kpi-total');
+    const kpiSwimlanes = document.getElementById('kpi-swimlanes');
+    const kpiQuarters = document.getElementById('kpi-quarters');
+    const kpiYears = document.getElementById('kpi-years');
+    const helpModal = document.getElementById('help-modal');
+    const helpTrigger = document.getElementById('help-trigger');
+    const helpClose = document.getElementById('help-close');
+
+    const filterFields = ['application', 'feature_name', 'system', 'region', 'quarter', 'month', 'year'];
+    const temporalQuickFields = ['year', 'quarter', 'month'];
+    const quickButtonFields = ['region', ...temporalQuickFields];
+    const filterLabels = {
+      application: 'Application',
+      feature_name: 'Feature Name',
+      system: 'System',
+      region: 'Region',
+      quarter: 'Quarter',
+      month: 'Month',
+      year: 'Year'
+    };
+
+    const monthOrder = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const quarterMonthMap = {
+      Q1: ['January', 'February', 'March'],
+      Q2: ['April', 'May', 'June'],
+      Q3: ['July', 'August', 'September'],
+      Q4: ['October', 'November', 'December']
+    };
+
+    const fixedRegionOptions = ['ASIA', 'MENA', 'EUROPE', 'UK', 'LATAM', 'US'];
+    const currentYear = new Date().getFullYear();
+    const baselineTimelineYears = [currentYear, currentYear + 1];
+
+    let allRows = [];
+    let quickFilterState = {
+      quarter: '',
+      year: '',
+      month: '',
+      region: ''
+    };
+
+    function openHelp() {
+      helpModal.classList.remove('hidden');
+    }
+
+    function closeHelp() {
+      helpModal.classList.add('hidden');
+    }
+
+    function setUploadCollapsed(collapsed) {
+      uploadCard.classList.toggle('collapsed', collapsed);
+      toggleUploadButton.classList.toggle('hidden', !collapsed);
+      toggleUploadButton.textContent = collapsed ? 'Expand Upload' : 'Collapse Upload';
+    }
+
+    function safeValue(value) {
+      return (value || '').toString().replace(/[<>]/g, '');
+    }
+
+    function createFilter(field, options) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'filter-item';
+
+      const label = document.createElement('label');
+      label.setAttribute('for', `filter-${field}`);
+      label.textContent = filterLabels[field];
+
+      const select = document.createElement('select');
+      select.id = `filter-${field}`;
+      select.dataset.field = field;
+
+      const allOption = document.createElement('option');
+      allOption.value = '';
+      allOption.textContent = 'All';
+      select.appendChild(allOption);
+
+      options.forEach((option) => {
+        const el = document.createElement('option');
+        el.value = option;
+        el.textContent = option;
+        select.appendChild(el);
+      });
+
+      select.addEventListener('change', applyFilters);
+      wrapper.append(label, select);
+      return wrapper;
+    }
+
+    function createQuickButtonFilter(field, options) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'filter-item filter-item-buttons';
+
+      const label = document.createElement('label');
+      label.textContent = filterLabels[field];
+
+      const buttonGroup = document.createElement('div');
+      buttonGroup.className = 'quick-buttons';
+
+      const allButton = document.createElement('button');
+      allButton.type = 'button';
+      allButton.className = 'quick-filter-btn active';
+      allButton.dataset.field = field;
+      allButton.dataset.value = '';
+      allButton.textContent = 'All';
+      buttonGroup.appendChild(allButton);
+
+      options.forEach((option) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'quick-filter-btn';
+        button.dataset.field = field;
+        button.dataset.value = option;
+        button.textContent = option;
+        buttonGroup.appendChild(button);
+      });
+
+      buttonGroup.addEventListener('click', (event) => {
+        const clicked = event.target.closest('.quick-filter-btn');
+        if (!clicked) return;
+
+        const selectedField = clicked.dataset.field;
+        const selectedValue = clicked.dataset.value || '';
+        quickFilterState[selectedField] = selectedValue;
+
+        buttonGroup.querySelectorAll('.quick-filter-btn').forEach((btn) => {
+          btn.classList.toggle('active', btn === clicked);
+        });
+
+        applyFilters();
+      });
+
+      wrapper.append(label, buttonGroup);
+      return wrapper;
+    }
+
+    function buildFilters(filters) {
+      temporalFilters.innerHTML = '';
+      filtersGrid.innerHTML = '';
+      quickFilterState = {
+        quarter: '',
+        year: '',
+        month: '',
+        region: ''
+      };
+
+      temporalQuickFields.forEach((field) => {
+        let options = filters[field] || [];
+        if (field === 'year') {
+          const yearSet = new Set([
+            ...baselineTimelineYears.map((year) => String(year)),
+            ...options
+          ]);
+          options = Array.from(yearSet).sort((a, b) => Number(a) - Number(b));
+        }
+        if (field === 'month') {
+          options = monthOrder;
+        }
+        temporalFilters.appendChild(createQuickButtonFilter(field, options));
+      });
+
+      filterFields.forEach((field) => {
+        if (temporalQuickFields.includes(field)) {
+          return;
+        }
+        let options = filters[field] || [];
+        if (field === 'region') {
+          options = fixedRegionOptions;
+        }
+        if (quickButtonFields.includes(field)) {
+          filtersGrid.appendChild(createQuickButtonFilter(field, options));
+          return;
+        }
+        filtersGrid.appendChild(createFilter(field, options));
+      });
+    }
+
+    function getActiveFilters() {
+      const active = {};
+      filterFields.forEach((field) => {
+        if (quickButtonFields.includes(field)) {
+          active[field] = quickFilterState[field] || '';
+          return;
+        }
+        const el = document.getElementById(`filter-${field}`);
+        active[field] = el ? el.value : '';
+      });
+      return active;
+    }
+
+    function applyFilters() {
+      const activeFilters = getActiveFilters();
+      const filtered = allRows.filter((row) => {
+        return filterFields.every((field) => {
+          if (!activeFilters[field]) return true;
+          return row[field] === activeFilters[field];
+        });
+      });
+
+      renderRoadmap(filtered, activeFilters);
+      renderKpis(filtered);
+      resultsCount.textContent = `${filtered.length} results`;
+    }
+
+    function getPeriodMeta(row) {
+      const monthIndex = monthOrder.indexOf(row.month);
+      const yearNumber = Number.parseInt(row.year, 10);
+      const isKnown = monthIndex >= 0 && Number.isFinite(yearNumber);
+
+      if (!isKnown) {
+        return {
+          key: 'unspecified',
+          label: 'Unspecified',
+          sort: Number.MAX_SAFE_INTEGER
+        };
+      }
+
+      return {
+        key: `${yearNumber}-${monthIndex + 1}`,
+        label: `${row.month} ${row.year}`,
+        sort: (yearNumber * 100) + (monthIndex + 1)
+      };
+    }
+
+    function buildPeriods(rows, activeFilters) {
+      const yearSet = new Set();
+
+      const selectedYear = Number.parseInt(activeFilters.year, 10);
+      if (Number.isFinite(selectedYear)) {
+        yearSet.add(selectedYear);
+      } else {
+        if (activeFilters.quarter || activeFilters.month) {
+          rows.forEach((row) => {
+            const yearNumber = Number.parseInt(row.year, 10);
+            if (Number.isFinite(yearNumber)) {
+              yearSet.add(yearNumber);
+            }
+          });
+        } else {
+          baselineTimelineYears.forEach((year) => yearSet.add(year));
+          rows.forEach((row) => {
+            const yearNumber = Number.parseInt(row.year, 10);
+            if (Number.isFinite(yearNumber)) {
+              yearSet.add(yearNumber);
+            }
+          });
+        }
+      }
+
+      let monthsToShow = [...monthOrder];
+      if (activeFilters.month) {
+        monthsToShow = [activeFilters.month];
+      } else if (activeFilters.quarter && quarterMonthMap[activeFilters.quarter]) {
+        monthsToShow = quarterMonthMap[activeFilters.quarter];
+      }
+
+      if (!yearSet.size) {
+        return [];
+      }
+
+      const monthNumbers = monthsToShow
+        .map((month) => ({ month, monthNumber: monthOrder.indexOf(month) + 1 }))
+        .filter((entry) => entry.monthNumber > 0);
+
+      if (!monthNumbers.length) {
+        return [];
+      }
+
+      rows.forEach((row) => {
+        const yearNumber = Number.parseInt(row.year, 10);
+        if (Number.isFinite(yearNumber)) {
+          yearSet.add(yearNumber);
+        }
+      });
+
+      const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
+      const periods = [];
+      sortedYears.forEach((year) => {
+        monthNumbers.forEach(({ month, monthNumber }) => {
+          periods.push({
+            key: `${year}-${monthNumber}`,
+            label: `${month} ${year}`,
+            sort: (year * 100) + monthNumber,
+            year,
+            month,
+            monthNumber,
+            quarter: `Q${Math.floor((monthNumber - 1) / 3) + 1}`
+          });
+        });
+      });
+
+      return periods;
+    }
+
+    function buildYearGroups(periods) {
+      const groups = [];
+      periods.forEach((period) => {
+        const last = groups[groups.length - 1];
+        if (last && last.year === period.year) {
+          last.span += 1;
+        } else {
+          groups.push({ year: period.year, span: 1 });
+        }
+      });
+      return groups;
+    }
+
+    function buildQuarterGroups(periods) {
+      const groups = [];
+      periods.forEach((period) => {
+        const key = `${period.year}-${period.quarter}`;
+        const last = groups[groups.length - 1];
+        if (last && last.key === key) {
+          last.span += 1;
+        } else {
+          groups.push({ key, label: period.quarter, span: 1 });
+        }
+      });
+      return groups;
+    }
+
+    function buildLanes(rows) {
+      const lanes = new Map();
+      rows.forEach((row) => {
+        const laneKey = `${row.system}||${row.region}`;
+        if (!lanes.has(laneKey)) {
+          lanes.set(laneKey, {
+            key: laneKey,
+            system: row.system,
+            region: row.region,
+            items: []
+          });
+        }
+        lanes.get(laneKey).items.push(row);
+      });
+
+      return Array.from(lanes.values()).sort((a, b) => a.system.localeCompare(b.system) || a.region.localeCompare(b.region));
+    }
+
+    function renderRoadmap(rows, activeFilters) {
+      roadmapBoard.innerHTML = '';
+      if (!rows.length) {
+        roadmapBoard.innerHTML = '<div class="empty">No roadmap items match the selected filters.</div>';
+        return;
+      }
+
+      const periods = buildPeriods(rows, activeFilters);
+      if (!periods.length) {
+        roadmapBoard.innerHTML = '<div class="empty">No timeline periods available for the selected filters.</div>';
+        return;
+      }
+
+      const lanes = buildLanes(rows);
+      const yearGroups = buildYearGroups(periods);
+      const quarterGroups = buildQuarterGroups(periods);
+
+      const grid = document.createElement('div');
+      grid.className = 'timeline-grid';
+      grid.style.setProperty('--period-columns', String(Math.max(periods.length, 1)));
+
+      const yearLabel = document.createElement('div');
+      yearLabel.className = 'lane-label lane-label-header timeline-tier-label';
+      yearLabel.textContent = 'Year';
+      grid.appendChild(yearLabel);
+
+      yearGroups.forEach((group) => {
+        const yearCell = document.createElement('div');
+        yearCell.className = 'timeline-year-cell';
+        yearCell.style.gridColumn = `span ${group.span}`;
+        yearCell.textContent = String(group.year);
+        grid.appendChild(yearCell);
+      });
+
+      const quarterLabel = document.createElement('div');
+      quarterLabel.className = 'lane-label lane-label-header timeline-tier-label';
+      quarterLabel.textContent = 'Quarter';
+      grid.appendChild(quarterLabel);
+
+      quarterGroups.forEach((group) => {
+        const quarterCell = document.createElement('div');
+        quarterCell.className = 'timeline-quarter-cell';
+        quarterCell.style.gridColumn = `span ${group.span}`;
+        quarterCell.textContent = group.label;
+        grid.appendChild(quarterCell);
+      });
+
+      const monthLabel = document.createElement('div');
+      monthLabel.className = 'lane-label lane-label-header timeline-tier-label';
+      monthLabel.textContent = 'Swimlanes';
+      grid.appendChild(monthLabel);
+
+      periods.forEach((period) => {
+        const headerCell = document.createElement('div');
+        headerCell.className = 'timeline-header-cell';
+        headerCell.textContent = period.month;
+        grid.appendChild(headerCell);
+      });
+
+      lanes.forEach((lane) => {
+        const laneLabel = document.createElement('div');
+        laneLabel.className = 'lane-label';
+        laneLabel.innerHTML = `<strong>${safeValue(lane.system)}</strong><span>${safeValue(lane.region)}</span>`;
+        grid.appendChild(laneLabel);
+
+        periods.forEach((period) => {
+          const cell = document.createElement('div');
+          cell.className = 'timeline-cell';
+
+          const items = lane.items.filter((item) => getPeriodMeta(item).key === period.key);
+          if (items.length) {
+            cell.innerHTML = items.map((item) => `
+              <article class="feature-card">
+                <h3>${safeValue(item.feature_name)}</h3>
+                <p>${safeValue(item.application)}</p>
+                <span class="pill">${safeValue(item.quarter)}</span>
+              </article>
+            `).join('');
+          } else {
+            cell.innerHTML = '<div class="timeline-placeholder" aria-label="No roadmap item">—</div>';
+          }
+
+          grid.appendChild(cell);
+        });
+      });
+
+      roadmapBoard.appendChild(grid);
+    }
+
+    function renderKpis(rows) {
+      const swimlanes = new Set(rows.map((r) => `${r.system}||${r.region}`));
+      const quarters = new Set(rows.map((r) => r.quarter));
+      const years = new Set(rows.map((r) => r.year));
+
+      kpiTotal.textContent = rows.length;
+      kpiSwimlanes.textContent = swimlanes.size;
+      kpiQuarters.textContent = quarters.size;
+      kpiYears.textContent = years.size;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const fileInput = document.getElementById('csvFile');
+
+      if (!fileInput.files.length) {
+        message.textContent = 'Please choose a CSV or XLSX file first.';
+        return;
+      }
+
+      message.textContent = 'Processing CSV...';
+
+      try {
+        const payload = new FormData();
+        payload.append('file', fileInput.files[0]);
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: payload
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Failed to process CSV.');
+        }
+
+        allRows = data.rows;
+        buildFilters(data.filters);
+        dashboard.classList.remove('hidden');
+        applyFilters();
+        message.textContent = `Roadmap generated from ${data.total_rows} records.`;
+        setUploadCollapsed(true);
+      } catch (error) {
+        setUploadCollapsed(false);
+        dashboard.classList.add('hidden');
+        message.textContent = error.message;
+      }
+    });
+
+    toggleUploadButton.addEventListener('click', () => {
+      const isCollapsed = uploadCard.classList.contains('collapsed');
+      setUploadCollapsed(!isCollapsed);
+    });
+
+    helpTrigger.addEventListener('click', openHelp);
+    helpClose.addEventListener('click', closeHelp);
+    helpModal.addEventListener('click', (event) => {
+      if (event.target === helpModal) {
+        closeHelp();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeHelp();
+      }
+    });
+  </script>
+</body>
+</html>
